@@ -1,8 +1,6 @@
 package vrfsuites
 
 import (
-	"encoding/hex"
-	"fmt"
 	"math/big"
 
 	"example.com/temp/rsa"
@@ -42,20 +40,13 @@ type RSA_FDH_VRF struct {
 func (cs *RSA_FDH_VRF) Prove(sk [2]big.Int, alpha []byte) ([]byte, error) {
 
 	var k = len(sk[0].Bytes())
-	fmt.Println(k)
 	var mgf_domain_separator = []byte{0x01}
-	// var mgf_domain_separator, _ = util.I2SOP(0x01, 4, "")
-	// var suite_string, _ = util.I2SOP(util.OS2IP(cs.Suite_string, ""), 4, "")
 
 	var seed = util.Concat([][]byte{cs.Suite_string, mgf_domain_separator, cs.MGF_salt, alpha})
-	fmt.Println(hex.EncodeToString(seed))
 	var EM, err1 = cs.RSA.MGF1(
 		seed,
 		uint64(k-1),
 	)
-	fmt.Println("\n----- EM -----")
-	fmt.Println(hex.EncodeToString(EM))
-	fmt.Println(len(EM))
 	if err1 != nil {
 		return nil, err1
 	}
@@ -114,9 +105,6 @@ func (cs *RSA_FDH_VRF) Verify(pk [2]big.Int, alpha []byte, pi_string []byte) ([]
 	var m_prime = util.OS2IP(EMprime, "")
 
 	if m.Cmp(m_prime) != 0 {
-		fmt.Println("m et m_prime:")
-		fmt.Println(m)
-		fmt.Println(m_prime)
 		return nil, ErrVerify
 	}
 
