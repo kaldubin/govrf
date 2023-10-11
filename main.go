@@ -9,6 +9,7 @@ import (
 	"example.com/temp/rsa"
 	"example.com/temp/util"
 	"example.com/temp/vrfsuites"
+	"filippo.io/edwards25519"
 )
 
 // "example.com/temp/curve"
@@ -59,6 +60,28 @@ func mgf1XOR(out []byte, seed []byte) {
 		incCounter(&counter)
 	}
 	// fmt.Println(hex.EncodeToString(digest))
+}
+
+func test_filipio(dont bool) {
+	if dont {
+		return
+	}
+	var k = big.NewInt(1)
+	fmt.Println(k.Bytes())
+	fmt.Println(len(k.Bytes()))
+	var k_byte, _ = util.I2SOP(k, 32, "little")
+	fmt.Println(k_byte)
+	var edk, _ = edwards25519.NewScalar().SetCanonicalBytes(k_byte)
+	fmt.Println(edk)
+
+	var b = edwards25519.NewGeneratorPoint()
+	var pt = edwards25519.NewGeneratorPoint()
+	fmt.Println(b.Bytes())
+	fmt.Println(pt.Bytes())
+	fmt.Println(pt.Equal(b))
+	pt.ScalarBaseMult(edk)
+	fmt.Println(pt.Bytes())
+	fmt.Println(pt.Equal(b))
 }
 
 func test_RSASP1(dont bool) {
@@ -307,16 +330,19 @@ func main() {
 	// var out = make([]byte, 255)))
 
 	fmt.Println("\n--- test Prove ---")
-	test_RSA_Prove(false)
+	test_RSA_Prove(true)
 
 	fmt.Println("\n--- test RSASP1 ---")
-	test_RSASP1(false)
+	test_RSASP1(true)
 
 	fmt.Println("\n--- test P2H ---")
-	test_RSA_P2H(false)
+	test_RSA_P2H(true)
 
 	fmt.Println("\n--- test Verify ---")
-	test_RSA_Verify(false)
+	test_RSA_Verify(true)
+
+	fmt.Println("\n--- test filipio ---")
+	test_filipio(false)
 }
 
 // a49eea4c082081ca8e405f9e8c880f57de8f7e2a121eabd1e2815c233b22e4538cc20abb816f996a86b3c5a3bf047e8c4eab43a7158434aa5e57c28576f2e04cd3e83885d191ce6fddaff08622befb66ea1b2b2ed092a90551d873303717cb605491a9ba17d6692cc489c606ac2429b69ac02a5cf350514df6b7d0858bab80ec
