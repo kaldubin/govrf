@@ -5,20 +5,9 @@ import (
 	"math/big"
 )
 
-type Equation struct {
-}
-
 type Curve struct {
 	Hash                                    crypto.Hash
-	prime, m, order, cofactor, l_maj, ptLen int
-}
-
-// base_point                              [2]int
-// equation                                Equation
-
-type CurveFactory interface {
-	Point2String([2]int) []byte
-	String2Point([]byte) [2]int
+	prime, m, order, cofactor, l_maj, ptLen *big.Int
 }
 
 // This interface would be used to perform Field Element arithmetic
