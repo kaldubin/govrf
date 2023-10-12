@@ -14,7 +14,7 @@ var (
 type E2C interface {
 	CurveFunction
 	CurveParam
-	Map2Curve(u [][]big.Int) []byte
+	Map2Curve(u []big.Int) ([]byte, error)
 }
 
 func Encode(message []byte, dst []byte, curve E2C) ([]byte, error) {
@@ -23,7 +23,10 @@ func Encode(message []byte, dst []byte, curve E2C) ([]byte, error) {
 		return nil, err1
 	}
 
-	var q_maj = curve.Map2Curve(u)
+	var q_maj, err2 = curve.Map2Curve(u[0])
+	if err2 != nil {
+		return nil, err2
+	}
 
 	var p_maj, err3 = ClearCofactor(q_maj, curve)
 	if err3 != nil {
