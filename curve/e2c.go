@@ -2,6 +2,7 @@ package curve
 
 import (
 	"errors"
+	"math/big"
 
 	"example.com/temp/util"
 )
@@ -11,19 +12,24 @@ var (
 )
 
 type E2C interface {
-	Map2Curve(u int) any
-	ExpandMsgXmd(message []byte, byteslen int, dst_maj []byte) ([]byte, error)
-	Hash2Field(message []byte, count int, dst []byte) (uint64, error)
-	ClearCofactor(q_maj any) any
-	Encode(message []byte, dst []byte) (any, error)
+	Map2Curve(u int) []byte
 }
 
-func (c *Curve) Map2Curve(u int64) any {
-	return nil
+func Encode(message []byte, dst []byte, curve CurveParam) (any, error) {
+	var u, err1 = Hash2Field(message, 1, dst, curve)
+	if err1 != nil {
+		return nil, err1
+	}
+
+	var q_maj = curve.Map2Curve(u)
+
+	var p_maj = ClearCofactor(q_maj, curve)
+
+	return p_maj, nil
 }
 
-func (c *Curve) ExpandMsgXmd(message []byte, byteslen int, dst_maj []byte) ([]byte, error) {
-	var ell int = byteslen / c.Hash.Size()
+func ExpandMsgXmd(message []byte, byteslen int, dst_maj []byte, ctx CurveParam) ([]byte, error) {
+	var ell int = byteslen / ctx.Hash.Size()
 
 	if ell > 255 || byteslen > 65535 || len(dst_maj) > 255 {
 		return nil, ErrExpandmsgxmd
@@ -80,11 +86,11 @@ func (c *Curve) ExpandMsgXmd(message []byte, byteslen int, dst_maj []byte) ([]by
 	return uniform_bytes[0:uint64(byteslen)], nil
 }
 
-func (c *Curve) Hash2Field(message []byte, count int, dst []byte) ([][]uint64, error) {
+func Hash2Field(message []byte, count *big.Int, dst []byte, ctx CurveParam) ([][]uint64, error) {
 
-	var lenb = count * c.m * c.l_maj
+	var lenb = count * ctx.m * ctx.l_maj
 
-	var uniform_bytes, err1 = c.ExpandMsgXmd(message, lenb, dst)
+	var uniform_bytes, err1 = ExpandMsgXmd(message, lenb, dst, ctx)
 
 	if err1 != nil {
 		return nil, err1
@@ -113,19 +119,6 @@ func (c *Curve) Hash2Field(message []byte, count int, dst []byte) ([][]uint64, e
 
 }
 
-func (c *Curve) ClearCofactor(q_maj any) any {
-	return q_maj * c.cofactor
-}
-
-func (c *Curve) Encode(message []byte, dst []byte) (any, error) {
-	var u, err1 = c.Hash2Field(message, 1, dst)
-	if err1 != nil {
-		return nil, err1
-	}
-
-	var q_maj = c.Map2Curve(int64(u[0]))
-
-	var p_maj = c.ClearCofactor(q_maj)
-
-	return p_maj
+func ClearCofactor(q_maj []byte, ctx CurveFunction) []byte {
+	return ctx.CofactorMultiply(q_maj)
 }

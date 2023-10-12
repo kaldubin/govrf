@@ -47,7 +47,7 @@ package vrfsuites
 
 // type ECVRF struct {
 // 	suite_string                      []byte
-// 	fLen, qLen, cLen, ptLen, cofactor int
+// 	fLen, qLen, cLen, ptLen, int
 // 	hash                              crypto.Hash
 // }
 
