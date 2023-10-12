@@ -1,66 +1,65 @@
 package main
 
 import (
-	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
 	"math/big"
 
+	"example.com/temp/curve"
 	"example.com/temp/rsa"
 	"example.com/temp/util"
 	"example.com/temp/vrfsuites"
 	"filippo.io/edwards25519"
 )
 
-// "example.com/temp/curve"
-// "example.com/temp/util"
+func test_expandxmd(dont bool) {
+	if dont {
+		return
+	}
+	var ed = curve.NewEd25519()
 
-// func test_expandxmd() {
-// 	var ed = curve.Curve{
-// 		Hash: crypto.SHA512,
+	var dst_maj = []byte("QUUX-V01-CS02-with-expander-SHA512-256")
+	var len_byte = big.NewInt(0x20)
+
+	var uniform_bytes, err = curve.ExpandMsgXmd([]byte("abc"), len_byte, dst_maj, ed)
+	fmt.Println(err)
+	fmt.Println(hex.EncodeToString(uniform_bytes))
+}
+
+// func incCounter(c *[4]byte) {
+// 	if c[3]++; c[3] != 0 {
+// 		return
 // 	}
+// 	if c[2]++; c[2] != 0 {
+// 		return
+// 	}
+// 	if c[1]++; c[1] != 0 {
+// 		return
+// 	}
+// 	c[0]++
+// }
 
-// 	var dst_maj = []byte("QUUX-V01-CS02-with-expander-SHA512-256")
-// 	var len_byte = 0x20
+// func mgf1XOR(out []byte, seed []byte) {
+// 	var sha = sha256.New()
+// 	var counter [4]byte
+// 	var digest []byte
 
-//		var uniform_bytes, err = ed.ExpandMsgXmd([]byte("abc"), len_byte, dst_maj)
-//		fmt.Println(err)
-//		fmt.Println(hex.EncodeToString(uniform_bytes))
-//	}
-func incCounter(c *[4]byte) {
-	if c[3]++; c[3] != 0 {
-		return
-	}
-	if c[2]++; c[2] != 0 {
-		return
-	}
-	if c[1]++; c[1] != 0 {
-		return
-	}
-	c[0]++
-}
+// 	done := 0
 
-func mgf1XOR(out []byte, seed []byte) {
-	var sha = sha256.New()
-	var counter [4]byte
-	var digest []byte
+// 	for done < len(out) {
+// 		sha.Write(seed)
+// 		sha.Write(counter[0:4])
+// 		digest = sha.Sum(digest[:0])
+// 		sha.Reset()
 
-	done := 0
-
-	for done < len(out) {
-		sha.Write(seed)
-		sha.Write(counter[0:4])
-		digest = sha.Sum(digest[:0])
-		sha.Reset()
-
-		for i := 0; i < len(digest) && done < len(out); i++ {
-			out[done] = digest[i]
-			done++
-		}
-		incCounter(&counter)
-	}
-	// fmt.Println(hex.EncodeToString(digest))
-}
+// 		for i := 0; i < len(digest) && done < len(out); i++ {
+// 			out[done] = digest[i]
+// 			done++
+// 		}
+// 		incCounter(&counter)
+// 	}
+// 	// fmt.Println(hex.EncodeToString(digest))
+// }
 
 func test_filipio(dont bool) {
 	if dont {
@@ -343,6 +342,9 @@ func main() {
 
 	fmt.Println("\n--- test filipio ---")
 	test_filipio(false)
+
+	fmt.Println("\n--- test expandxmd ---")
+	test_expandxmd(false)
 }
 
 // a49eea4c082081ca8e405f9e8c880f57de8f7e2a121eabd1e2815c233b22e4538cc20abb816f996a86b3c5a3bf047e8c4eab43a7158434aa5e57c28576f2e04cd3e83885d191ce6fddaff08622befb66ea1b2b2ed092a90551d873303717cb605491a9ba17d6692cc489c606ac2429b69ac02a5cf350514df6b7d0858bab80ec
