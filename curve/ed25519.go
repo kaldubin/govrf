@@ -1,6 +1,8 @@
 package curve
 
 import (
+	"crypto/sha512"
+	"hash"
 	"math/big"
 
 	"example.com/temp/util"
@@ -8,7 +10,52 @@ import (
 )
 
 type Ed25519 struct {
-	CurveParam
+	prime, order, l_maj, m *big.Int
+	hash                   hash.Hash
+}
+
+func NewEd25519() Ed25519 {
+	return Ed25519{
+		prime: big.NewInt(0),
+		order: big.NewInt(0),
+		l_maj: big.NewInt(0),
+		m:     big.NewInt(0),
+		hash:  sha512.New(),
+	}
+}
+
+func (ed Ed25519) GetOrder() *big.Int {
+	return ed.order
+}
+
+func (ed Ed25519) GetPrime() *big.Int {
+	return ed.prime
+}
+
+func (ed Ed25519) GetL() *big.Int {
+	return ed.l_maj
+}
+
+func (ed Ed25519) GetM() *big.Int {
+	return ed.m
+}
+
+func (ed Ed25519) GetHashBlockSize() *big.Int {
+	return big.NewInt(int64(ed.hash.BlockSize()))
+}
+
+func (ed Ed25519) GetHashSize() *big.Int {
+	return big.NewInt(int64(ed.hash.Size()))
+}
+
+func (ed Ed25519) Hash(input []byte) []byte {
+	ed.hash.Reset()
+	ed.hash.Write(input)
+	return ed.hash.Sum(nil)
+}
+
+func (ed Ed25519) Map2Curve(u int) []byte {
+	panic(1)
 }
 
 func (ed Ed25519) Add(x []byte, y []byte) ([]byte, error) {
