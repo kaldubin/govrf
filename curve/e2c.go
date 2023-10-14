@@ -1,10 +1,13 @@
 package curve
 
 import (
+	"encoding/hex"
 	"errors"
+	"fmt"
 	"math/big"
 
 	"example.com/temp/util"
+	"filippo.io/edwards25519"
 )
 
 var (
@@ -22,16 +25,32 @@ func Encode(message []byte, dst []byte, curve E2C) ([]byte, error) {
 	if err1 != nil {
 		return nil, err1
 	}
+	fmt.Println("u[0]")
+	fmt.Println(hex.EncodeToString(u[0][0].Bytes()))
 
 	var q_maj, err2 = curve.Map2Curve(u[0])
 	if err2 != nil {
 		return nil, err2
 	}
+	var q, _ = edwards25519.NewGeneratorPoint().SetBytes(q_maj)
+	var Xq, Yq, Zq, _ = q.ExtendedCoordinates()
+	Zq.Invert(Zq)
+	var x_iq, y_iq = util.OS2IP(Xq.Multiply(Xq, Zq).Bytes(), "little"), util.OS2IP(Yq.Multiply(Yq, Zq).Bytes(), "little")
+	fmt.Println("\nOutput Q x & y")
+	fmt.Println(hex.EncodeToString(x_iq.Bytes()))
+	fmt.Println(hex.EncodeToString(y_iq.Bytes()))
 
 	var p_maj, err3 = ClearCofactor(q_maj, curve)
 	if err3 != nil {
 		return nil, err3
 	}
+	var p, _ = edwards25519.NewGeneratorPoint().SetBytes(p_maj)
+	var X, Y, Z, _ = p.ExtendedCoordinates()
+	Z.Invert(Z)
+	var x_i, y_i = util.OS2IP(X.Multiply(X, Z).Bytes(), "little"), util.OS2IP(Y.Multiply(Y, Z).Bytes(), "little")
+	fmt.Println("\nOutput P x & y")
+	fmt.Println(hex.EncodeToString(x_i.Bytes()))
+	fmt.Println(hex.EncodeToString(y_i.Bytes()))
 
 	return p_maj, nil
 }
@@ -104,15 +123,11 @@ func Hash2Field(message []byte, count int64, dst []byte, ctx CurveParam) ([][]bi
 
 		for j := int64(0); j < ctx.GetM().Int64(); j++ {
 			var elm_offset = ctx.GetL().Int64() * (j + i*ctx.GetM().Int64())
-			var tv = util.Substr(uniform_bytes, uint(elm_offset), uint(ctx.GetM().Uint64()))
+			var tv = util.Substr(uniform_bytes, uint(elm_offset), uint(ctx.GetL().Uint64()))
 			var e_j = util.OS2IP(tv, "")
 			e_j.Mod(e_j, ctx.GetPrime())
 
-			if ctx.GetM().Cmp(big.NewInt(1)) > 0 {
-				e_m = append(e_m, *e_j)
-			} else {
-				e_m[0] = *e_j
-			}
+			e_m = append(e_m, *e_j)
 		}
 
 		u_count = append(u_count, e_m)

@@ -39,7 +39,7 @@ func (p256 P256) Map2Curve(u []big.Int) ([]byte, error) {
 	tv12.Exp(u_0, big.NewInt(2), p256.prime)
 	tv12.Mul(tv12, z_maj)
 	tv11.Add(tv11, tv12)
-	var tv1 = util.Inv0(tv11, p256.order)
+	var tv1 = util.Inv0(tv11, p256.prime)
 
 	// x1 = (-B / A) * (1 + tv1)
 	var x1 *big.Int
