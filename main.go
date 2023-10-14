@@ -83,6 +83,21 @@ func test_filipio(dont bool) {
 	fmt.Println(pt.Equal(b))
 }
 
+func test_e2c(dont bool) {
+	if dont {
+		return
+	}
+	var msg = []byte("")
+	var dst_maj = []byte("QUUX-V01-CS02-with-edwards25519_XMD:SHA-512_ELL2_NU_")
+	var ed = curve.NewEd25519()
+	var e2cout, err = curve.Encode(msg, dst_maj, ed)
+	if err != nil {
+		fmt.Println(err)
+	}
+	fmt.Println()
+	fmt.Println(hex.EncodeToString(e2cout))
+}
+
 func test_RSASP1(dont bool) {
 	if dont {
 		return
@@ -345,6 +360,9 @@ func main() {
 
 	fmt.Println("\n--- test expandxmd ---")
 	test_expandxmd(false)
+
+	fmt.Println("\n--- test e2c ---")
+	test_e2c(false)
 }
 
 // a49eea4c082081ca8e405f9e8c880f57de8f7e2a121eabd1e2815c233b22e4538cc20abb816f996a86b3c5a3bf047e8c4eab43a7158434aa5e57c28576f2e04cd3e83885d191ce6fddaff08622befb66ea1b2b2ed092a90551d873303717cb605491a9ba17d6692cc489c606ac2429b69ac02a5cf350514df6b7d0858bab80ec
