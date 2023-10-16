@@ -35,6 +35,16 @@ func LegendreSymbol(x *big.Int, q *big.Int) *big.Int {
 	return ret.Exp(x, &pow, q)
 }
 
+func Sqrt3mod4(x, p *big.Int) *big.Int {
+	var c1 = big.NewInt(1)
+	c1.Add(p, c1)
+	c1.Div(c1, big.NewInt(4))
+
+	var ret big.Int
+	ret.Exp(x, c1, p)
+	return &ret
+}
+
 func Sqrt(x, p *big.Int) *big.Int {
 	if LegendreSymbol(x, p).Cmp(big.NewInt(1)) != 0 {
 		return big.NewInt(0)

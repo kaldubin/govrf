@@ -2,7 +2,6 @@ package util
 
 import (
 	"errors"
-	"fmt"
 	"math/big"
 )
 
@@ -24,12 +23,7 @@ func Reverse[S ~[]E, E any](s S) {
 	}
 }
 
-// Issue with big number, implementation to be revised
 func I2SOP(x *big.Int, xlen int, byteorder string) ([]byte, error) {
-	fmt.Print("Transforming ")
-	fmt.Print(x)
-	fmt.Print(" with len octet ")
-	fmt.Println(xlen)
 	// fmt.Println(uint64(256**(xlen)))
 	// if x >= uint64(math.Pow(256, float64(xlen+1))) {
 	// 	return nil, ErrInt2bytestoolong
