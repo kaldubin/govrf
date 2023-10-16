@@ -1,6 +1,7 @@
 package main
 
 import (
+	"crypto/elliptic"
 	"encoding/hex"
 	"fmt"
 	"math/big"
@@ -16,50 +17,15 @@ func test_expandxmd(dont bool) {
 	if dont {
 		return
 	}
-	var ed = curve.NewEd25519()
+	var ed = curve.NewP256()
 
-	var dst_maj = []byte("QUUX-V01-CS02-with-expander-SHA512-256")
-	var len_byte = big.NewInt(0x20)
+	var dst_maj = []byte("QUUX-V01-CS02-with-expander-SHA256-128")
+	var len_byte = big.NewInt(0x80)
 
 	var uniform_bytes, err = curve.ExpandMsgXmd([]byte("abc"), len_byte, dst_maj, ed)
 	fmt.Println(err)
 	fmt.Println(hex.EncodeToString(uniform_bytes))
 }
-
-// func incCounter(c *[4]byte) {
-// 	if c[3]++; c[3] != 0 {
-// 		return
-// 	}
-// 	if c[2]++; c[2] != 0 {
-// 		return
-// 	}
-// 	if c[1]++; c[1] != 0 {
-// 		return
-// 	}
-// 	c[0]++
-// }
-
-// func mgf1XOR(out []byte, seed []byte) {
-// 	var sha = sha256.New()
-// 	var counter [4]byte
-// 	var digest []byte
-
-// 	done := 0
-
-// 	for done < len(out) {
-// 		sha.Write(seed)
-// 		sha.Write(counter[0:4])
-// 		digest = sha.Sum(digest[:0])
-// 		sha.Reset()
-
-// 		for i := 0; i < len(digest) && done < len(out); i++ {
-// 			out[done] = digest[i]
-// 			done++
-// 		}
-// 		incCounter(&counter)
-// 	}
-// 	// fmt.Println(hex.EncodeToString(digest))
-// }
 
 func test_filipio(dont bool) {
 	if dont {
@@ -87,6 +53,7 @@ func test_e2c(dont bool) {
 	if dont {
 		return
 	}
+
 	var msg = []byte("")
 	var dst_maj = []byte("QUUX-V01-CS02-with-edwards25519_XMD:SHA-512_ELL2_NU_")
 	var ed = curve.NewEd25519()
@@ -96,6 +63,27 @@ func test_e2c(dont bool) {
 	}
 	fmt.Println()
 	fmt.Println(hex.EncodeToString(e2cout))
+}
+
+func test_e2c_p256(dont bool) {
+	if dont {
+		return
+	}
+	fmt.Println("\nExpected Q x & y (same for P)")
+	fmt.Println("f871caad25ea3b59c16cf87c1894902f7e7b2c822c3d3f73596c5ace8ddd14d1")
+	fmt.Println("87b9ae23335bee057b99bac1e68588b18b5691af476234b8971bc4f011ddc99b")
+	fmt.Println("")
+	var msg = []byte("")
+	var dst_maj = []byte("QUUX-V01-CS02-with-P256_XMD:SHA-256_SSWU_NU_")
+	var p256 = curve.NewP256()
+	var e2cout, err = curve.Encode(msg, dst_maj, &p256)
+	if err != nil {
+		fmt.Println(err)
+	}
+	var x, y = elliptic.UnmarshalCompressed(elliptic.P256(), e2cout)
+	fmt.Println()
+	fmt.Println(hex.EncodeToString(x.Bytes()))
+	fmt.Println(hex.EncodeToString(y.Bytes()))
 }
 
 func test_RSASP1(dont bool) {
@@ -254,10 +242,6 @@ func test_RSA_Prove(dont bool) {
 		MGF_salt:     util.Concat([][]byte{front, back}),
 		Suite_string: []byte{0x01},
 	}
-	// p = 17272758497114784655
-	// n = 15973044611513514873
-	// m = 661649386982695693
-	// s de RSASP1 = 9223372036854775808
 
 	var alpha, _ = hex.DecodeString("")
 	fmt.Println("alpha = ")
@@ -280,69 +264,6 @@ func test_RSA_Prove(dont bool) {
 }
 
 func main() {
-	// var name string = "Math"
-	// var name = "Math"
-
-	// var name string
-	// name = util.Encode()
-	// fmt.Println(name)
-	// var b []byte
-	// b, _ = util.I2SOP(uint(111390), uint(16), "")
-
-	// h := make([]byte, hex.EncodedLen(len(b)))
-	// hex.Encode(h, b)
-	// fmt.Printf("%s\n", h)
-
-	// var h = sha512.New()
-	// var _, _ = h.Write([]byte("hello world"))
-	// var s1 = h.Sum([]byte{})
-	// h.Reset()
-	// var _, _ = h.Write([]byte("hello"))
-	// var s2 = h.Sum([]byte{})
-
-	// var b, err = util.I2SOP(uint64(38), uint64(1), "")
-	// fmt.Println(err)
-	// fmt.Println(b)
-	// fmt.Println(hex.EncodeToString(b))
-
-	// var c, err2 = util.I2SOP(0x20, uint64(2), "")
-	// fmt.Println(err2)
-	// fmt.Println(c)
-	// fmt.Println(hex.EncodeToString(c))
-
-	// fmt.Printf("%s\n%s\n", hex.EncodeToString(s1), hex.EncodeToString(s2))
-	// fmt.Println(len(hex.EncodeToString(s1)))
-
-	// test_expandxmd()
-	// var i = 0x10
-	// var i_byte = byte(i)
-	// var j_byte = []byte{0x10}
-	// fmt.Println(i)
-	// fmt.Println(i_byte)
-	// fmt.Println(j_byte)
-	// fmt.Println(hex.EncodeToString([]byte{i_byte}))
-	// fmt.Println(hex.EncodeToString(j_byte))
-
-	var n_byte, _ = hex.DecodeString("ddaba77202bafb796b85bcec98958aa58ae2d117cbc66a6e75c4c2af983985a3064eaef93e2b03393256d94d75d6a6656b2956524ed8711898a0c3abae84371da0283bc5f433fc384d810a3c118ed302c0b03da16bee70b80ba3480e7acc1eb358b3f20fbe90cc4c8a7e2ba9e28b2a3800a5efbaa3c264f79b231f7cdc9577818df1bac60ef7a3f78a44f046fd29b0689556da7a7f61eefe67427f3f691aee0a4b1efe2ee2e0e6091143ebb7d69254c9d8ab01ff5e0ad7329f566082f9251e64f436c547e68de75351ea3a09746ceb7efed2d234121088aaed01696583c172ec88bc173a0d4d8ec43f4dcc18ff8379317e83ef9685536283368c9c6deb783075")
-
-	var o1x = []byte{0x01}
-	fmt.Println(o1x)
-	fmt.Println(util.OS2IP(o1x, ""))
-
-	var o1, _ = util.I2SOP(big.NewInt(1), 4, "little")
-	fmt.Println(o1)
-	var o256, _ = util.I2SOP(big.NewInt(256), 4, "little")
-	fmt.Println(o256)
-	var ibig big.Int
-	ibig.SetBytes(n_byte)
-	var obig, _ = util.I2SOP(&ibig, 255, "")
-	// fmt.Println(hex.EncodeToString(obig))
-	fmt.Println(util.OS2IP(o1, "little"))
-	fmt.Println(util.OS2IP(o256, "little"))
-	fmt.Println(util.OS2IP(obig, ""))
-
-	// var out = make([]byte, 255)))
-
 	fmt.Println("\n--- test Prove ---")
 	test_RSA_Prove(true)
 
@@ -356,14 +277,14 @@ func main() {
 	test_RSA_Verify(true)
 
 	fmt.Println("\n--- test filipio ---")
-	test_filipio(false)
+	test_filipio(true)
 
 	fmt.Println("\n--- test expandxmd ---")
-	test_expandxmd(false)
+	test_expandxmd(true)
 
 	fmt.Println("\n--- test e2c ---")
-	test_e2c(false)
-}
+	test_e2c(true)
 
-// a49eea4c082081ca8e405f9e8c880f57de8f7e2a121eabd1e2815c233b22e4538cc20abb816f996a86b3c5a3bf047e8c4eab43a7158434aa5e57c28576f2e04cd3e83885d191ce6fddaff08622befb66ea1b2b2ed092a90551d873303717cb605491a9ba17d6692cc489c606ac2429b69ac02a5cf350514df6b7d0858bab80ec
-// 9858e09cd83369e384a3313192d82063903224bdfa24881c70a2a0f1a37067f65dbe90cc14893e9cc37b3ee0087320980b35bcdb4f6547f8c76eff39bbfbca5866471f6ee5f983af38a05d203ee465d277409bbca6c989048a4123655ebc87769f33fba02fffe30e620762f0de256cb0bdf0a3e55b547110109296df1205d614a6bd529dc49ce5ca806e19e319b16d8f90115fb587680d4e63173de3a84420d4891ae2db6ffe08fcacfabdc58dbcdada0f649b9bebff905c131c873c6ab41b6e49db1cd2b14b742f64687ff1c4a0fbcc0d309618bad78bde88871bd4dec66857fad8d9304b8fa6d0135ef138ad7e47c353443676f2b749f16dd38d58115843
+	fmt.Println("\n--- test e2c p256---")
+	test_e2c_p256(false)
+}
