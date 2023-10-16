@@ -7,7 +7,6 @@ import (
 	"math/big"
 
 	"example.com/temp/util"
-	"filippo.io/edwards25519"
 )
 
 var (
@@ -32,32 +31,19 @@ func Encode(message []byte, dst []byte, curve E2C) ([]byte, error) {
 	if err2 != nil {
 		return nil, err2
 	}
-	var q, _ = edwards25519.NewGeneratorPoint().SetBytes(q_maj)
-	var Xq, Yq, Zq, _ = q.ExtendedCoordinates()
-	Zq.Invert(Zq)
-	var x_iq, y_iq = util.OS2IP(Xq.Multiply(Xq, Zq).Bytes(), "little"), util.OS2IP(Yq.Multiply(Yq, Zq).Bytes(), "little")
-	fmt.Println("\nOutput Q x & y")
-	fmt.Println(hex.EncodeToString(x_iq.Bytes()))
-	fmt.Println(hex.EncodeToString(y_iq.Bytes()))
 
 	var p_maj, err3 = ClearCofactor(q_maj, curve)
 	if err3 != nil {
 		return nil, err3
 	}
-	var p, _ = edwards25519.NewGeneratorPoint().SetBytes(p_maj)
-	var X, Y, Z, _ = p.ExtendedCoordinates()
-	Z.Invert(Z)
-	var x_i, y_i = util.OS2IP(X.Multiply(X, Z).Bytes(), "little"), util.OS2IP(Y.Multiply(Y, Z).Bytes(), "little")
-	fmt.Println("\nOutput P x & y")
-	fmt.Println(hex.EncodeToString(x_i.Bytes()))
-	fmt.Println(hex.EncodeToString(y_i.Bytes()))
 
 	return p_maj, nil
 }
 
 func ExpandMsgXmd(message []byte, byteslen *big.Int, dst_maj []byte, ctx HashParam) ([]byte, error) {
 	var ell = big.NewInt(0)
-	ell.Div(byteslen, ctx.GetHashBlockSize())
+	ell.Div(byteslen, ctx.GetHashSize())
+	ell.Add(ell, big.NewInt(1))
 
 	if ell.Cmp(big.NewInt(255)) > 0 || byteslen.Cmp(big.NewInt(65535)) > 0 || len(dst_maj) > 255 {
 		return nil, ErrExpandmsgxmd
@@ -91,15 +77,15 @@ func ExpandMsgXmd(message []byte, byteslen *big.Int, dst_maj []byte, ctx HashPar
 	for i := big.NewInt(2); i.Cmp(ell) <= 0; i.Add(i, big.NewInt(1)) {
 
 		pad, _ = util.I2SOP(i, 1, "")
-		var xor []byte
-		copy(xor, b_0)
+		var xor = make([]byte, len(b_0))
 		for j := range b_0 {
-			xor[j] = b_0[j] ^ b_ell[len(b_ell)-1][j]
+			xor[j] = b_0[j] ^ b_ell[i.Int64()-2][j]
 		}
 
 		var b_i = ctx.Hash(util.Concat([][]byte{xor, pad, dst_prime}))
 
 		b_ell = append(b_ell, b_i)
+
 	}
 
 	var uniform_bytes = util.Concat(b_ell)

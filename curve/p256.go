@@ -2,10 +2,12 @@ package curve
 
 import (
 	"encoding/hex"
+	"errors"
 	"hash"
 	"math/big"
 
 	"crypto/elliptic"
+	"crypto/sha256"
 
 	"example.com/temp/util"
 	"filippo.io/nistec"
@@ -16,12 +18,191 @@ type P256 struct {
 	hash                   hash.Hash
 }
 
+func NewP256() P256 {
+	// p: 2^256 - 2^224 + 2^192 + 2^96 - 1
+	var prime_ed, t = big.NewInt(2), big.NewInt(2)
+	prime_ed.Exp(prime_ed, big.NewInt(256), nil)
+	t.Exp(t, big.NewInt(224), nil)
+	prime_ed.Sub(prime_ed, t)
+	t.Exp(big.NewInt(2), big.NewInt(192), nil)
+	prime_ed.Add(prime_ed, t)
+	t.Exp(big.NewInt(2), big.NewInt(96), nil)
+	prime_ed.Add(prime_ed, t)
+	prime_ed.Sub(prime_ed, big.NewInt(1))
+
+	z_maj.Mod(z_maj, prime_ed)
+	a_maj.Mod(a_maj, prime_ed)
+
+	var b_maj_os, _ = hex.DecodeString("5ac635d8aa3a93e7b3ebbd55769886bc651d06b0cc53b0f63bce3c3e27d2604b")
+	b_maj = util.OS2IP(b_maj_os, "")
+
+	return P256{
+		prime: prime_ed,
+		order: prime_ed,
+		l_maj: big.NewInt(48),
+		m:     big.NewInt(1),
+		hash:  sha256.New(),
+	}
+}
+
 var a_maj = big.NewInt(-3)
-var b_maj_os, _ = hex.DecodeString("0x5ac635d8aa3a93e7b3ebbd55769886bc651d06b0cc53b0f63bce3c3e27d2604b")
-var b_maj = util.OS2IP(b_maj_os, "")
+var b_maj = big.NewInt(1)
 var z_maj = big.NewInt(-10)
 
 // ----------- E2C Interface -----------
+// F.2.1.2.  Optimized sqrt_ratio for q = 3 mod 4
+func (p256 P256) sqrt_ratio(u, v *big.Int) (bool, *big.Int) {
+	var c1, c2, tv1, tv2, tv3, y1, y2 big.Int
+
+	//c1 = (q - 3) / 4
+	c1.Sub(p256.prime, big.NewInt(3))
+	c1.Div(&c1, big.NewInt(4))
+
+	//c2 = sqrt(-Z)
+	c2.Neg(z_maj)
+	c2.Mod(&c2, p256.prime)
+	c2 = *util.Sqrt(&c2, p256.prime)
+
+	//tv1 = v^2
+	tv1.Exp(v, big.NewInt(2), p256.prime)
+
+	//tv2 = u * v
+	tv2.Mul(u, v)
+	tv2.Mod(&tv2, p256.prime)
+
+	//tv1 = tv1 * tv2
+	tv1.Mul(&tv1, &tv2)
+	tv1.Mod(&tv1, p256.prime)
+
+	//y1 = tv1^c1
+	y1.Exp(&tv1, &c1, p256.prime)
+
+	//y1 = y1 * tv2
+	y1.Mul(&y1, &tv2)
+	y1.Mod(&y1, p256.prime)
+
+	//y2 = y1 * c2
+	y2.Mul(&y1, &c2)
+	y2.Mod(&y2, p256.prime)
+
+	//tv3 = y1^2
+	tv3.Exp(&y1, big.NewInt(2), p256.prime)
+
+	//tv3 = tv3 * v
+	tv3.Mul(&tv3, v)
+	tv3.Mod(&tv3, p256.prime)
+
+	//isQR = tv3 == u
+	//y = CMOV(y2, y1, isQR)
+	if tv3.Cmp(u) == 0 {
+		return true, &y1
+	}
+	return false, &y2
+}
+
+// see Section F.2.  Simplified SWU Method of rfc 9380
+func (p256 P256) SSWU(u *big.Int) (*big.Int, *big.Int) {
+	var tv1, tv2, tv3, tv4, tv5, tv6 big.Int
+
+	//tv1 = u^2
+	tv1.Exp(u, big.NewInt(2), p256.prime)
+
+	//tv1 = Z * tv1
+	tv1.Mul(z_maj, &tv1)
+	tv1.Mod(&tv1, p256.prime)
+
+	//tv2 = tv1^2
+	tv2.Exp(&tv1, big.NewInt(2), p256.prime)
+
+	//tv2 = tv2 + tv1
+	tv2.Add(&tv2, &tv1)
+	tv2.Mod(&tv2, p256.prime)
+
+	//tv3 = tv2 + 1
+	tv3.Add(&tv2, big.NewInt(1))
+	tv3.Mod(&tv3, p256.prime)
+
+	//tv3 = B * tv3
+	tv3.Mul(b_maj, &tv3)
+	tv3.Mod(&tv3, p256.prime)
+
+	//tv4 = CMOV(Z, -tv2, tv2 != 0)
+	if tv2.Cmp(big.NewInt(0)) == 0 {
+		tv4.Set(z_maj)
+	} else {
+		tv4.Neg(&tv2)
+	}
+	tv4.Mod(&tv4, p256.prime)
+
+	//tv4 = A * tv4
+	tv4.Mul(a_maj, &tv4)
+	tv4.Mod(&tv4, p256.prime)
+
+	//tv2 = tv3^2
+	tv2.Exp(&tv3, big.NewInt(2), p256.prime)
+
+	//tv6 = tv4^2
+	tv6.Exp(&tv4, big.NewInt(2), p256.prime)
+
+	//tv5 = A * tv6
+	tv5.Mul(a_maj, &tv6)
+	tv5.Mod(&tv5, p256.prime)
+
+	//tv2 = tv2 + tv5
+	tv2.Add(&tv2, &tv5)
+	tv2.Mod(&tv2, p256.prime)
+
+	//tv2 = tv2 * tv3
+	tv2.Mul(&tv2, &tv3)
+	tv2.Mod(&tv2, p256.prime)
+
+	//tv6 = tv6 * tv4
+	tv6.Mul(&tv6, &tv4)
+	tv6.Mod(&tv6, p256.prime)
+
+	//tv5 = B * tv6
+	tv5.Mul(b_maj, &tv6)
+	tv5.Mod(&tv5, p256.prime)
+
+	//tv2 = tv2 + tv5
+	tv2.Add(&tv2, &tv5)
+	tv2.Mod(&tv2, p256.prime)
+
+	var x, y big.Int
+	//x = tv1 * tv3
+	x.Mul(&tv1, &tv3)
+	x.Mod(&x, p256.prime)
+
+	//(is_gx1_square, y1) = sqrt_ratio(tv2, tv6)
+	var is_gx1_square, y1 = p256.sqrt_ratio(&tv2, &tv6)
+
+	//y = tv1 * u
+	y.Mul(&tv1, u)
+	y.Mod(&y, p256.prime)
+
+	//y = y * y1
+	y.Mul(&y, y1)
+	y.Mod(&y, p256.prime)
+
+	//x = CMOV(x, tv3, is_gx1_square)
+	//y = CMOV(y, y1, is_gx1_square)
+	if is_gx1_square {
+		x.Set(&tv3)
+		y.Set(y1)
+	}
+
+	//e1 = sgn0(u) == sgn0(y)
+	//y = CMOV(-y, y, e1)
+	if util.Sgn0Meq1(u).Cmp(util.Sgn0Meq1(&y)) != 0 {
+		y.Neg(&y)
+		y.Mod(&y, p256.prime)
+	}
+	//x = x / tv4
+	x.Mul(&x, util.Inv0(&tv4, p256.prime))
+	x.Mod(&x, p256.prime)
+
+	return &x, &y
+}
 
 // Implement SSWU Method (Simplified Shallue-van de Woestijne-Ulas Method)
 func (p256 P256) Map2Curve(u []big.Int) ([]byte, error) {
@@ -29,79 +210,13 @@ func (p256 P256) Map2Curve(u []big.Int) ([]byte, error) {
 	if len(u) == 1 {
 		u_0 = &u[0]
 	}
-	// z_maj a field element
-	//
-	// var tv1 = util.Inv0(p256.z_maj**2 * u**4 + Z * u**2)
-	var tv11 *big.Int
-	tv11.Exp(z_maj, big.NewInt(2), p256.prime)
-	tv11.Mul(tv11, u_0.Exp(u_0, big.NewInt(4), p256.prime))
-	var tv12 *big.Int
-	tv12.Exp(u_0, big.NewInt(2), p256.prime)
-	tv12.Mul(tv12, z_maj)
-	tv11.Add(tv11, tv12)
-	var tv1 = util.Inv0(tv11, p256.prime)
-
-	// x1 = (-B / A) * (1 + tv1)
-	var x1 *big.Int
-	x1.Neg(b_maj)
-	x1.Div(x1, a_maj)
-	var x11 *big.Int
-	x11.Add(tv1, big.NewInt(1))
-	x1.Mul(x1, x11)
-
-	if tv1.Cmp(big.NewInt(0)) == 0 {
-		// x1 = B / (Z * A)
-		x1.Mul(z_maj, a_maj)
-		x1.Div(big.NewInt(1), x1)
-		x1.Mul(b_maj, x1)
+	var xt, yt = p256.SSWU(u_0)
+	if !elliptic.P256().IsOnCurve(xt, yt) {
+		return nil, errors.New("point not on curve")
 	}
+	var uell2 = elliptic.MarshalCompressed(elliptic.P256(), xt, yt)
 
-	// gx1 = x1^3 + A * x1 + B
-	var gx1 *big.Int
-	gx1.Exp(x1, big.NewInt(3), p256.prime)
-	var gx11 *big.Int
-	gx11.Mul(a_maj, x1)
-	gx1.Add(gx1, gx11)
-	gx1.Add(gx1, b_maj)
-
-	// x2 = Z * u^2 * x1
-	var x2 *big.Int
-	x2.Exp(u_0, big.NewInt(2), p256.prime)
-	x2.Mul(x2, z_maj)
-	x2.Mul(x2, x1)
-
-	// gx2 = x2^3 + A * x2 + B
-	var gx2 *big.Int
-	gx2.Exp(x2, big.NewInt(3), p256.prime)
-	var gx21 *big.Int
-	gx21.Mul(a_maj, x2)
-	gx2.Add(gx2, gx21)
-	gx2.Add(gx2, b_maj)
-
-	var x, y *big.Int
-	if util.IsSquare(gx1, p256.order) {
-		x = x1
-		y.ModSqrt(gx1, p256.prime)
-	} else {
-		x = x2
-		y.ModSqrt(gx2, p256.prime)
-	}
-
-	if util.Sgn0Meq1(u_0).Cmp(util.Sgn0Meq1(y)) != 0 {
-		y.Neg(y)
-	}
-
-	// If is_square(gx1), set x = x1 and y = sqrt(gx1)
-	// Else set x = x2 and y = sqrt(gx2)
-	// If sgn0(u) != sgn0(y), set y = -y
-	// return (x, y)
-	var uell = elliptic.Marshal(elliptic.P256(), x, y)
-	var upt, err = nistec.NewP256Point().SetBytes(uell)
-	if err != nil {
-		return nil, err
-	}
-	return upt.Bytes(), nil
-
+	return uell2, nil
 }
 
 // ----------- CurveParam Interface -----------
@@ -139,10 +254,10 @@ func (p256 P256) Hash(input []byte) []byte {
 // ----------- CurveFunction Interface -----------
 
 var cofactor = [32]byte{
-	0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
 	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
 	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
 	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01,
 }
 var x_p = nistec.NewP256Point()
 var y_p = nistec.NewP256Point()
