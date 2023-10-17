@@ -1,5 +1,13 @@
 package vrfsuites
 
+import (
+	"errors"
+	"math/big"
+
+	"example.com/temp/curve"
+	"example.com/temp/util"
+)
+
 // -------------------------- Elliptic Curve VRF CYPHER SUITES -------------------------------
 // public key = pk
 // private key = sk
@@ -45,98 +53,138 @@ package vrfsuites
 //
 // -------------------------------------------------------------------------------------------
 
-// type ECVRF struct {
-// 	suite_string                      []byte
-// 	fLen, qLen, cLen, ptLen, int
-// 	hash                              crypto.Hash
-// }
+type ECVRF struct {
+	suite_string            []byte
+	fLen, qLen, cLen, ptLen *big.Int
+	curve                   curve.Curve
+}
 
-// func (cs *ECVRF) Prove(sk, alpha []byte) ([]byte, error) {
+func (cs ECVRF) ECVRF_challenge_generation(p1, p2, p3, p4, p5 []byte) *big.Int {
+	var challenge_generation_domain_separator_front = []byte{0x02}
 
-// 	var pk = sk.GetPublicKey()
+	var str = util.Concat([][]byte{cs.suite_string, challenge_generation_domain_separator_front})
 
-// 	var H = cs.ECVRF_encode_to_curve(pk, alpha)
+	for _, pj := range [][]byte{p1, p2, p3, p4, p5} {
+		str = util.Concat([][]byte{str, pj})
+	}
 
-// 	var h = cs.Point2String(H)
+	var challenge_generation_domain_separator_back = []byte{0x00}
 
-// 	var Gamma = H.ScalarMultiply(sk)
+	str = util.Concat([][]byte{str, challenge_generation_domain_separator_back})
 
-// 	var k = cs.ECVRF_nonce_generation(sk, h)
+	var c_string = cs.curve.Hash(str)
 
-// 	var c = cs.ECVRF_challenge_generation(pk, H, Gamma, cs.BasePoint.ScalarMultiply(k), H.ScalarMultiply(k))
+	var c = util.OS2IP(c_string[:cs.cLen.Int64()-1], "")
 
-// 	var s = (k + c*sk) % cs.q
+	return c
+}
 
-// 	var c_byte, err1 = util.I2SOP(c, uint64(cs.cLen), "")
-// 	if err1 != nil {
-// 		return nil, err1
-// 	}
-// 	var s_byte, err2 = util.I2SOP(s, uint64(cs.qLen), "")
-// 	if err2 != nil {
-// 		return nil, err2
-// 	}
-// 	var pi_string = util.Concat([][]byte{
-// 		cs.Point2String(Gamma), c_byte, s_byte,
-// 	})
+func (cs ECVRF) ECVRF_decode_proof(pi_string []byte) ([][]byte, error) {
+	var gamma_string = util.Substr(pi_string, 0, uint(cs.ptLen.Int64()-1))
 
-// 	return pi_string, nil
-// }
+	var c_string = util.Substr(pi_string, uint(cs.ptLen.Int64()), uint(cs.ptLen.Int64()+cs.cLen.Int64()-1))
 
-// func (cs *ECVRF) Proof2Hash(pi []byte) ([]byte, error) {
+	var s_string = util.Substr(pi_string, uint(cs.ptLen.Int64()+cs.cLen.Int64()), uint(cs.ptLen.Int64()+cs.cLen.Int64()+cs.qLen.Int64()-1))
 
-// 	var D, err1 = cs.ECVRF_decode_proof(pi)
-// 	if err1 != nil {
-// 		return nil, err1
-// 	}
+	var Gamma, err1 = cs.String2Point(gamma_string)
+	if err1 != nil {
+		return nil, err1
+	}
 
-// 	var Gamma, c, s = D
+	var s = util.OS2IP(s_string, "")
+	if s >= cs.curve.Prime {
+		return nil, errors.New("s greater than prime")
+	}
 
-// 	var proof_to_hash_domain_separator_front = 0x03
+	return [][]byte{gamma_string, c_string, s_string}, nil
+}
 
-// 	var proof_to_hash_domain_separator_back = 0x00
+func (cs *ECVRF) Prove(sk, alpha []byte) ([]byte, error) {
 
-// 	var hash = cs.hash.New()
-// 	var _, err2 = hash.Write(util.Concat([][]byte{
-// 		cs.suite_string, proof_to_hash_domain_separator_front, cs.Point2String(Gamma.ScalarMultiply(cs.cofactor)), proof_to_hash_domain_separator_back,
-// 	}))
-// 	if err2 != nil {
-// 		return nil, err2
-// 	}
-// 	var beta_string = hash.Sum([]byte{})
+	var pk = sk.GetPublicKey()
 
-// 	return beta_string, nil
-// }
+	var H = cs.ECVRF_encode_to_curve(pk, alpha)
 
-// func (cs *ECVRF) Verify(pk []byte, alpha []byte, pi_string []byte) ([]byte, error) {
+	var h = cs.Point2String(H)
 
-// 	var Y, err1 = cs.String2Point(pk)
-// 	if err1 != nil {
-// 		return nil, err1
-// 	}
+	var Gamma = H.ScalarMultiply(sk)
 
-// 	var D, err2 = cs.ECVRF_decode_proof(pi_string)
-// 	if err2 != nil {
-// 		return nil, err2
-// 	}
+	var k = cs.ECVRF_nonce_generation(sk, h)
 
-// 	var Gamma, c, s = D
+	var c = cs.ECVRF_challenge_generation(pk, H, Gamma, cs.BasePoint.ScalarMultiply(k), H.ScalarMultiply(k))
 
-// 	var H = cs.ECVRF_encode_to_curve(pk, alpha)
+	var s = (k + c*sk) % cs.q
 
-// 	var U = cs.BasePoint.ScalarMultiply(s) - Y.ScalarMultiply(c)
+	var c_byte, err1 = util.I2SOP(c, uint64(cs.cLen), "")
+	if err1 != nil {
+		return nil, err1
+	}
+	var s_byte, err2 = util.I2SOP(s, uint64(cs.qLen), "")
+	if err2 != nil {
+		return nil, err2
+	}
+	var pi_string = util.Concat([][]byte{
+		cs.Point2String(Gamma), c_byte, s_byte,
+	})
 
-// 	var V = H.ScalarMultiply(s) - Gamma.ScalarMultiply(c)
+	return pi_string, nil
+}
 
-// 	var c_prime = cs.ECVRF_challenge_generation(Y, H, Gamma, U, V)
+func (cs *ECVRF) Proof2Hash(pi []byte) ([]byte, error) {
 
-// 	if c != c_prime {
-// 		return nil, ErrVerify
-// 	}
+	var D, err1 = cs.ECVRF_decode_proof(pi)
+	if err1 != nil {
+		return nil, err1
+	}
 
-// 	var beta_string, err3 = cs.Proof2Hash(pi_string)
-// 	if err3 != nil {
-// 		return nil, err3
-// 	}
+	var Gamma, c, s = D
 
-// 	return beta_string, nil
-// }
+	var proof_to_hash_domain_separator_front = 0x03
+
+	var proof_to_hash_domain_separator_back = 0x00
+
+	var hash = cs.hash.New()
+	var _, err2 = hash.Write(util.Concat([][]byte{
+		cs.suite_string, proof_to_hash_domain_separator_front, cs.Point2String(Gamma.ScalarMultiply(cs.cofactor)), proof_to_hash_domain_separator_back,
+	}))
+	if err2 != nil {
+		return nil, err2
+	}
+	var beta_string = hash.Sum([]byte{})
+
+	return beta_string, nil
+}
+
+func (cs *ECVRF) Verify(pk []byte, alpha []byte, pi_string []byte) ([]byte, error) {
+
+	var Y, err1 = cs.String2Point(pk)
+	if err1 != nil {
+		return nil, err1
+	}
+
+	var D, err2 = cs.ECVRF_decode_proof(pi_string)
+	if err2 != nil {
+		return nil, err2
+	}
+
+	var Gamma, c, s = D
+
+	var H = cs.ECVRF_encode_to_curve(pk, alpha)
+
+	var U = cs.BasePoint.ScalarMultiply(s) - Y.ScalarMultiply(c)
+
+	var V = H.ScalarMultiply(s) - Gamma.ScalarMultiply(c)
+
+	var c_prime = cs.ECVRF_challenge_generation(Y, H, Gamma, U, V)
+
+	if c != c_prime {
+		return nil, ErrVerify
+	}
+
+	var beta_string, err3 = cs.Proof2Hash(pi_string)
+	if err3 != nil {
+		return nil, err3
+	}
+
+	return beta_string, nil
+}
