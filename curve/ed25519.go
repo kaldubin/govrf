@@ -3,17 +3,13 @@ package curve
 import (
 	"crypto/sha512"
 	"encoding/hex"
-	"hash"
 	"math/big"
 
 	"example.com/temp/util"
 	"filippo.io/edwards25519"
 )
 
-type Ed25519 struct {
-	prime, order, l_maj, m *big.Int
-	hash                   hash.Hash
-}
+type Ed25519 Curve
 
 func NewEd25519() Ed25519 {
 	var prime_ed = big.NewInt(2)

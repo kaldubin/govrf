@@ -3,7 +3,6 @@ package curve
 import (
 	"encoding/hex"
 	"errors"
-	"hash"
 	"math/big"
 
 	"crypto/elliptic"
@@ -13,10 +12,7 @@ import (
 	"filippo.io/nistec"
 )
 
-type P256 struct {
-	prime, order, l_maj, m *big.Int
-	hash                   hash.Hash
-}
+type P256 Curve
 
 func NewP256() P256 {
 	// p: 2^256 - 2^224 + 2^192 + 2^96 - 1
@@ -262,7 +258,7 @@ var cofactor = [32]byte{
 var x_p = nistec.NewP256Point()
 var y_p = nistec.NewP256Point()
 
-func (p256 *P256) Add(x []byte, y []byte) ([]byte, error) {
+func (p256 P256) Add(x []byte, y []byte) ([]byte, error) {
 	var _, errx = x_p.SetBytes(x)
 	if errx != nil {
 		return nil, errx
@@ -275,7 +271,7 @@ func (p256 *P256) Add(x []byte, y []byte) ([]byte, error) {
 	return x_p.Add(x_p, y_p).BytesCompressed(), nil
 }
 
-func (p256 *P256) Subtract(x []byte, y []byte) ([]byte, error) {
+func (p256 P256) Subtract(x []byte, y []byte) ([]byte, error) {
 	var _, errx = x_p.SetBytes(x)
 	if errx != nil {
 		return nil, errx
@@ -288,7 +284,7 @@ func (p256 *P256) Subtract(x []byte, y []byte) ([]byte, error) {
 	return x_p.Add(x_p, y_p.Negate(y_p)).BytesCompressed(), nil
 }
 
-func (p256 *P256) CofactorMultiply(x []byte) ([]byte, error) {
+func (p256 P256) CofactorMultiply(x []byte) ([]byte, error) {
 	var _, errx = x_p.SetBytes(x)
 	if errx != nil {
 		return nil, errx
@@ -301,7 +297,7 @@ func (p256 *P256) CofactorMultiply(x []byte) ([]byte, error) {
 	return x_p.BytesCompressed(), nil
 }
 
-func (p256 *P256) ScalarMultiply(x []byte, k *big.Int) ([]byte, error) {
+func (p256 P256) ScalarMultiply(x []byte, k *big.Int) ([]byte, error) {
 	var _, errx = x_p.SetBytes(x)
 	if errx != nil {
 		return nil, errx
@@ -319,7 +315,7 @@ func (p256 *P256) ScalarMultiply(x []byte, k *big.Int) ([]byte, error) {
 	return x_p.BytesCompressed(), nil
 }
 
-func (p256 *P256) ScalarBaseMultiply(k *big.Int) ([]byte, error) {
+func (p256 P256) ScalarBaseMultiply(k *big.Int) ([]byte, error) {
 	var k_byte, errk1 = util.I2SOP(k, 32, "")
 	if errk1 != nil {
 		return nil, errk1

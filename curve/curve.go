@@ -1,6 +1,7 @@
 package curve
 
 import (
+	"hash"
 	"math/big"
 )
 
@@ -34,31 +35,7 @@ type CurveFunction interface {
 	ScalarBaseMultiply(*big.Int) ([]byte, error)
 }
 
-// type CurveParam struct {
-// 	prime, order, l_maj, m *big.Int
-// 	Hash                   crypto.Hash
-// }
-
-// func (c CurveParam) Map2Curve(u int) []byte {
-// 	panic(1)
-// }
-
-// func (c CurveParam) Add([]byte, []byte) ([]byte, error) {
-// 	panic(1)
-// }
-
-// func (c CurveParam) Subtract(x []byte, y []byte) ([]byte, error) {
-// 	panic(1)
-// }
-
-// func (c CurveParam) CofactorMultiply(x []byte) ([]byte, error) {
-// 	panic(1)
-// }
-
-// func (c CurveParam) ScalarMultiply(x []byte, k *big.Int) ([]byte, error) {
-// 	panic(1)
-// }
-
-// func (c CurveParam) ScalarBaseMultiply(k *big.Int) ([]byte, error) {
-// 	panic(1)
-// }
+type Curve struct {
+	prime, order, l_maj, m *big.Int
+	hash                   hash.Hash
+}
